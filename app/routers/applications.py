@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
-from app.models import InternshipApplication, Role, Student, User
+from app.models import ApplicationStatus, InternshipApplication, Role, Student, User
 from app.schemas import ApplicationCreate, ApplicationResponse, ApplicationUpdate
 
 
@@ -37,6 +40,12 @@ def _check_application_access(
     "",
     response_model=ApplicationResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Create an internship application",
+    description=(
+        "Students create an application for their own profile (student_id is "
+        "inferred). Admins may create an application for any student by "
+        "supplying student_id."
+    ),
 )
 def create_application(
     payload: ApplicationCreate,
@@ -76,13 +85,67 @@ def create_application(
     return application
 
 
-@router.get("", response_model=list[ApplicationResponse])
-def list_applications(user: User = Depends(require_admin), db: Session = Depends(get_db)):
-    statement = select(InternshipApplication).order_by(InternshipApplication.id)
+@router.get(
+    "",
+    response_model=list[ApplicationResponse],
+    summary="List internship applications",
+    description=(
+        "Admins see all applications and can filter by student. Students see "
+        "only their own applications. Supports filtering by status, student "
+        "(admin only), and applied_date range."
+    ),
+)
+def list_applications(
+    application_status: Optional[ApplicationStatus] = Query(
+        default=None, alias="status", description="Filter by application status"
+    ),
+    student_id: Optional[int] = Query(
+        default=None, description="Filter by student (admin only)"
+    ),
+    date_from: Optional[date] = Query(
+        default=None,
+        description="Only applications with applied_date on/after this date",
+    ),
+    date_to: Optional[date] = Query(
+        default=None,
+        description="Only applications with applied_date on/before this date",
+    ),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    statement = select(InternshipApplication)
+
+    if user.role == Role.admin:
+        if student_id is not None:
+            statement = statement.where(
+                InternshipApplication.student_id == student_id
+            )
+    else:
+        if user.student is None:
+            raise HTTPException(status_code=400, detail="Student profile not found")
+        statement = statement.where(
+            InternshipApplication.student_id == user.student.id
+        )
+
+    if application_status is not None:
+        statement = statement.where(
+            InternshipApplication.status == application_status
+        )
+    if date_from is not None:
+        statement = statement.where(InternshipApplication.applied_date >= date_from)
+    if date_to is not None:
+        statement = statement.where(InternshipApplication.applied_date <= date_to)
+
+    statement = statement.order_by(InternshipApplication.id)
     return db.scalars(statement).all()
 
 
-@router.get("/{application_id}", response_model=ApplicationResponse)
+@router.get(
+    "/{application_id}",
+    response_model=ApplicationResponse,
+    summary="Get an internship application by ID",
+    description="Admins can fetch any application. Students can only fetch their own.",
+)
 def get_application(
     application_id: int,
     db: Session = Depends(get_db),
@@ -93,8 +156,24 @@ def get_application(
     return application
 
 
-@router.patch("/{application_id}", response_model=ApplicationResponse)
-@router.put("/{application_id}", response_model=ApplicationResponse)
+@router.patch(
+    "/{application_id}",
+    response_model=ApplicationResponse,
+    summary="Update an internship application",
+    description=(
+        "Partially update an application's details. Admins can update any "
+        "application. Students can only update their own."
+    ),
+)
+@router.put(
+    "/{application_id}",
+    response_model=ApplicationResponse,
+    summary="Replace an internship application's details",
+    description=(
+        "Update an application's details. Admins can update any application. "
+        "Students can only update their own."
+    ),
+)
 def update_application(
     application_id: int,
     payload: ApplicationUpdate,
@@ -111,7 +190,12 @@ def update_application(
     return application
 
 
-@router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{application_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an internship application",
+    description="Admin only.",
+)
 def delete_application(
     application_id: int,
     db: Session = Depends(get_db),
