@@ -1,13 +1,17 @@
 from contextlib import asynccontextmanager
 import logging
 
+from dotenv import load_dotenv
+load_dotenv()  # must run before anything reads os.getenv
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.database import Base, engine
+from app.bootstrap import create_admin_if_missing
+from app.database import Base, engine, SessionLocal
 from app.routers.applications import router as applications_router
 from app.routers.auth import router as auth_router
 from app.routers.students import router as students_router
@@ -16,10 +20,20 @@ from app.routers.students import router as students_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	Base.metadata.create_all(bind=engine)
+	db = SessionLocal()
+	try:
+		create_admin_if_missing(db)
+	finally:
+		db.close()
 	yield
 
 
 app = FastAPI(title="Internship Applications API", lifespan=lifespan)
+
+
+@app.get("/")
+def root():
+	return {"status": "ok"}
 
 
 @app.exception_handler(StarletteHTTPException)

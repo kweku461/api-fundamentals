@@ -8,3 +8,4 @@ python-multipart==0.0.26
 psycopg2-binary==2.9.10
 pytest==9.1.1
 httpx==0.28.1
+python-dotenv==1.0.1
