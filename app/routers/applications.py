@@ -2,13 +2,18 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models import ApplicationStatus, InternshipApplication, Role, Student, User
-from app.schemas import ApplicationCreate, ApplicationResponse, ApplicationUpdate
+from app.schemas import (
+    ApplicationCreate,
+    ApplicationResponse,
+    ApplicationUpdate,
+    StatusUpdate,
+)
 
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -92,10 +97,15 @@ def create_application(
     description=(
         "Admins see all applications and can filter by student. Students see "
         "only their own applications. Supports filtering by status, student "
-        "(admin only), and applied_date range."
+        "(admin only), and applied_date range, plus text search by company "
+        "name or role title."
     ),
 )
 def list_applications(
+    search: Optional[str] = Query(
+        default=None,
+        description="Search company name and role title (case-insensitive)",
+    ),
     application_status: Optional[ApplicationStatus] = Query(
         default=None, alias="status", description="Filter by application status"
     ),
@@ -125,6 +135,15 @@ def list_applications(
             raise HTTPException(status_code=400, detail="Student profile not found")
         statement = statement.where(
             InternshipApplication.student_id == user.student.id
+        )
+
+    if search and (search_term := search.strip()):
+        search_pattern = f"%{search_term}%"
+        statement = statement.where(
+            or_(
+                InternshipApplication.company_name.ilike(search_pattern),
+                InternshipApplication.role_title.ilike(search_pattern),
+            )
         )
 
     if application_status is not None:
@@ -185,6 +204,24 @@ def update_application(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(application, field, value)
 
+    db.commit()
+    db.refresh(application)
+    return application
+
+@router.patch(
+    "/{application_id}/status",
+    response_model=ApplicationResponse,
+    summary="Update an application's status",
+    description="Admin only. Set status to pending, accepted, or rejected.",
+)
+def update_application_status(
+    application_id: int,
+    payload: StatusUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    application = _get_application_or_404(application_id, db)
+    application.status = payload.status
     db.commit()
     db.refresh(application)
     return application
