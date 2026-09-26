@@ -1,21 +1,38 @@
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.database import Base, engine
+from app.database import Base, SessionLocal, engine
+from app.models import Role, User
 from app.routers.applications import router as applications_router
 from app.routers.auth import router as auth_router
 from app.routers.students import router as students_router
+from app.security import hash_password
+
+
+def create_admin_if_configured() -> None:
+	"""Creates the first admin from the ADMIN_EMAIL / ADMIN_PASSWORD settings, if set."""
+	email = os.getenv("ADMIN_EMAIL")
+	password = os.getenv("ADMIN_PASSWORD")
+	if not email or not password:
+		return
+	with SessionLocal() as db:
+		if db.scalar(select(User).where(User.email == email.lower())) is None:
+			db.add(User(email=email.lower(), hashed_password=hash_password(password), role=Role.admin))
+			db.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 	Base.metadata.create_all(bind=engine)
+	create_admin_if_configured()
 	yield
 
 
@@ -69,3 +86,9 @@ async def handle_unexpected_exception(request: Request, exc: Exception):
 app.include_router(auth_router)
 app.include_router(applications_router)
 app.include_router(students_router)
+
+
+@app.get("/", tags=["health"], summary="Health check")
+def health():
+	"""Render pings this to confirm the API is running."""
+	return {"status": "ok", "docs": "/docs"}
