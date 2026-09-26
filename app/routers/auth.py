@@ -25,9 +25,9 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
     server from the ADMIN_EMAIL / ADMIN_PASSWORD settings."""
     email = data.email.lower()
     if db.scalar(select(User).where(User.email == email)):
-        raise HTTPException(status_code=400, detail="Email is already registered")
+        raise HTTPException(status_code=409, detail="Email is already registered")
     if db.scalar(select(Student).where(Student.email == email)):
-        raise HTTPException(status_code=400, detail="A student with this email already exists")
+        raise HTTPException(status_code=409, detail="A student with this email already exists")
 
     user = User(email=email, hashed_password=hash_password(data.password), role=Role.student)
     user.student = Student(

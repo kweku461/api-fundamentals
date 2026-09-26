@@ -123,6 +123,12 @@ def list_applications(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from must be on or before date_to",
+        )
+
     statement = select(InternshipApplication)
 
     if user.role == Role.admin:

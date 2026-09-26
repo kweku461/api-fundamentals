@@ -13,6 +13,12 @@ def _not_in_future(value: date | None) -> date | None:
     return value
 
 
+def _reject_explicit_null(value: object) -> object:
+    if value is None:
+        raise ValueError("Field cannot be null")
+    return value
+
+
 # ---------- Auth / users ----------
 
 class UserRegister(BaseModel):
@@ -57,6 +63,10 @@ class StudentUpdate(BaseModel):
     programme: str | None = Field(default=None, max_length=150)
     level: int | None = Field(default=None, ge=100, le=900)
 
+    _check_required_fields = field_validator(
+        "full_name", "email", mode="before"
+    )(_reject_explicit_null)
+
 
 class StudentResponse(StudentBase):
     model_config = ConfigDict(from_attributes=True)
@@ -86,6 +96,9 @@ class ApplicationUpdate(BaseModel):
     applied_date: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
 
+    _check_required_fields = field_validator(
+        "company_name", "role_title", "applied_date", mode="before"
+    )(_reject_explicit_null)
     _check_date = field_validator("applied_date")(_not_in_future)
 
 

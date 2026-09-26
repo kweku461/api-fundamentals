@@ -33,7 +33,7 @@ def _ensure_email_available(email: str, db: Session, student_id: int | None = No
     statement = select(Student).where(Student.email == email)
     existing = db.scalar(statement)
     if existing is not None and existing.id != student_id:
-        raise HTTPException(status_code=400, detail="A student with this email already exists")
+        raise HTTPException(status_code=409, detail="A student with this email already exists")
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
