@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from dotenv import load_dotenv
+
 load_dotenv()  # must run before anything reads os.getenv
 
 from fastapi import FastAPI, Request
@@ -11,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.bootstrap import create_admin_if_missing
-from app.database import Base, engine, SessionLocal
+from app.database import Base, SessionLocal, engine
 from app.routers.applications import router as applications_router
 from app.routers.auth import router as auth_router
 from app.routers.students import router as students_router
@@ -19,13 +20,13 @@ from app.routers.students import router as students_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-	Base.metadata.create_all(bind=engine)
-	db = SessionLocal()
-	try:
-		create_admin_if_missing(db)
-	finally:
-		db.close()
-	yield
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        create_admin_if_missing(db)
+    finally:
+        db.close()
+    yield
 
 
 app = FastAPI(title="Internship Applications API", lifespan=lifespan)
@@ -83,3 +84,9 @@ async def handle_unexpected_exception(request: Request, exc: Exception):
 app.include_router(auth_router)
 app.include_router(applications_router)
 app.include_router(students_router)
+
+
+@app.get("/", tags=["health"], summary="Health check")
+def root():
+    """Render pings this to confirm the API is running."""
+    return {"status": "ok", "docs": "/docs"}

@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -12,8 +12,13 @@ from app.schemas import (
     ApplicationCreate,
     ApplicationResponse,
     ApplicationUpdate,
+    MAX_ID,
     StatusUpdate,
 )
+
+
+# IDs in the URL must be between 1 and MAX_ID
+IdPath = Annotated[int, Path(ge=1, le=MAX_ID)]
 
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -110,7 +115,7 @@ def list_applications(
         default=None, alias="status", description="Filter by application status"
     ),
     student_id: Optional[int] = Query(
-        default=None, description="Filter by student (admin only)"
+        default=None, ge=1, le=MAX_ID, description="Filter by student (admin only)"
     ),
     date_from: Optional[date] = Query(
         default=None,
@@ -172,7 +177,7 @@ def list_applications(
     description="Admins can fetch any application. Students can only fetch their own.",
 )
 def get_application(
-    application_id: int,
+    application_id: IdPath,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -200,7 +205,7 @@ def get_application(
     ),
 )
 def update_application(
-    application_id: int,
+    application_id: IdPath,
     payload: ApplicationUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -221,7 +226,7 @@ def update_application(
     description="Admin only. Set status to pending, accepted, or rejected.",
 )
 def update_application_status(
-    application_id: int,
+    application_id: IdPath,
     payload: StatusUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
@@ -240,7 +245,7 @@ def update_application_status(
     description="Admin only.",
 )
 def delete_application(
-    application_id: int,
+    application_id: IdPath,
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
 ):

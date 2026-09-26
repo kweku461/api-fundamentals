@@ -6,6 +6,10 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models import ApplicationStatus, Role
 
+# Largest value a PostgreSQL INTEGER id column can hold. IDs outside 1..MAX_ID are
+# rejected with 422 before they reach the database (otherwise the database errors -> 500).
+MAX_ID = 2_147_483_647
+
 
 def _not_in_future(value: date | None) -> date | None:
     if value is not None and value > date.today():
@@ -81,7 +85,7 @@ class StudentResponse(StudentBase):
 class ApplicationCreate(BaseModel):
     # students leave this out (their own profile is used);
     # admins must say which student the application is for
-    student_id: int | None = None
+    student_id: int | None = Field(default=None, ge=1, le=MAX_ID)
     company_name: str = Field(min_length=1, max_length=150)
     role_title: str = Field(min_length=1, max_length=150)
     applied_date: date

@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models import Role, Student, User
-from app.schemas import StudentCreate, StudentResponse, StudentUpdate
+from app.schemas import MAX_ID, StudentCreate, StudentResponse, StudentUpdate
+
+
+# IDs in the URL must be between 1 and MAX_ID
+IdPath = Annotated[int, Path(ge=1, le=MAX_ID)]
 
 
 router = APIRouter(prefix="/students", tags=["students"])
@@ -71,7 +77,7 @@ def list_students(
 
 @router.get("/{student_id}", response_model=StudentResponse)
 def get_student(
-    student_id: int,
+    student_id: IdPath,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -83,7 +89,7 @@ def get_student(
 @router.patch("/{student_id}", response_model=StudentResponse)
 @router.put("/{student_id}", response_model=StudentResponse)
 def update_student(
-    student_id: int,
+    student_id: IdPath,
     payload: StudentUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -104,7 +110,7 @@ def update_student(
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_student(
-    student_id: int,
+    student_id: IdPath,
     db: Session = Depends(get_db),
     user: User = Depends(require_admin),
 ):
