@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.models import Role, User
 from app.security import decode_access_token
 
 # tells Swagger where to get a token, which makes the "Authorize" button work
@@ -27,5 +27,14 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User no longer exists",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != Role.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
         )
     return user
