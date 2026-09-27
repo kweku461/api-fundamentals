@@ -23,6 +23,11 @@ def _reject_explicit_null(value: object) -> object:
     return value
 
 
+def _lowercase_email(value: str | None) -> str | None:
+    # emails are stored in lowercase so "Ama@x.com" and "ama@x.com" count as the same
+    return value.lower() if value is not None else value
+
+
 # ---------- Auth / users ----------
 
 class UserRegister(BaseModel):
@@ -31,6 +36,8 @@ class UserRegister(BaseModel):
     full_name: str = Field(min_length=2, max_length=150)
     programme: str | None = Field(default=None, max_length=150)
     level: int | None = Field(default=None, ge=100, le=900)
+
+    _normalise_email = field_validator("email")(_lowercase_email)
 
 
 class UserResponse(BaseModel):
@@ -55,6 +62,8 @@ class StudentBase(BaseModel):
     programme: str | None = Field(default=None, max_length=150)
     level: int | None = Field(default=None, ge=100, le=900)
 
+    _normalise_email = field_validator("email")(_lowercase_email)
+
 
 class StudentCreate(StudentBase):
     pass
@@ -70,6 +79,7 @@ class StudentUpdate(BaseModel):
     _check_required_fields = field_validator(
         "full_name", "email", mode="before"
     )(_reject_explicit_null)
+    _normalise_email = field_validator("email")(_lowercase_email)
 
 
 class StudentResponse(StudentBase):
