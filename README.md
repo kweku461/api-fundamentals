@@ -37,7 +37,8 @@ app/
     students.py       students CRUD
     applications.py   applications CRUD, search, filters, status
 tests/
-  test_error_handling.py
+  test_api.py              auth, roles, CRUD, search and status
+  test_error_handling.py   error shapes and validation
 render.yaml         Render deployment blueprint
 requirements.txt
 .env.example
@@ -52,6 +53,8 @@ requirements.txt
 | `internship_applications` | student_id → students, company_name, role_title, status, applied_date, notes |
 
 - **User → Student** is one-to-one: the login account is separate from the student's details.
+  Changing a student's profile email also changes the email they log in with.
+- Emails are stored in lowercase, so `Ama@x.com` and `ama@x.com` are the same address.
 - **Student → Applications** is one-to-many. Deleting a student also deletes their applications.
 - New applications start as `pending`.
 
@@ -104,7 +107,7 @@ Public sign-up always gives the `student` role. The admin account is created at 
 ### Internship applications
 | Method | Path | Who | Description |
 |---|---|---|---|
-| POST | `/applications` | logged in | Create an application (students: for their own profile) |
+| POST | `/applications` | logged in | Create an application (students: for their own profile; admins must send `student_id`) |
 | GET | `/applications` | logged in | List, search and filter (see below) |
 | GET | `/applications/{id}` | owner / admin | Get one application |
 | PUT / PATCH | `/applications/{id}` | owner / admin | Update application details |
@@ -162,9 +165,13 @@ Validation errors list each problem:
 pytest -v
 ```
 
+Each test runs against a fresh in-memory SQLite database, so no setup is needed and your local
+`internship.db` is not touched.
+
 ## Deploy on Render
 
-1. On Render, choose **New → Blueprint** and select this repo. `render.yaml` creates the web service and a PostgreSQL database.
+1. On Render, choose **New → Blueprint** and select this repo. `render.yaml` creates the web service and a PostgreSQL database,
+   and connects them (`DATABASE_URL` is filled in for you).
 2. When asked, set `ADMIN_EMAIL` and `ADMIN_PASSWORD`. `SECRET_KEY` is generated automatically.
 3. After the deploy, open `https://<your-service>.onrender.com/docs`.
 

@@ -42,6 +42,12 @@ def _ensure_email_available(email: str, db: Session, student_id: int | None = No
         raise HTTPException(status_code=409, detail="A student with this email already exists")
 
 
+def _ensure_login_email_available(email: str, db: Session, user_id: int) -> None:
+    existing = db.scalar(select(User).where(User.email == email))
+    if existing is not None and existing.id != user_id:
+        raise HTTPException(status_code=409, detail="Email is already registered")
+
+
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
 def create_student(
     payload: StudentCreate,
@@ -100,6 +106,10 @@ def update_student(
     values = payload.model_dump(exclude_unset=True)
     if "email" in values:
         _ensure_email_available(str(values["email"]), db, student.id)
+        # keep the login email in step with the profile email
+        if student.user is not None:
+            _ensure_login_email_available(str(values["email"]), db, student.user.id)
+            student.user.email = values["email"]
     for field, value in values.items():
         setattr(student, field, value)
 

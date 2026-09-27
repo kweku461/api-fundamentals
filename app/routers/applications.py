@@ -63,6 +63,11 @@ def create_application(
     user: User = Depends(get_current_user),
 ):
     if payload.student_id is None:
+        if user.role == Role.admin:
+            raise HTTPException(
+                status_code=422,
+                detail="student_id is required when an admin creates an application",
+            )
         if user.student is None:
             raise HTTPException(status_code=400, detail="Student profile not found")
         student_id = user.student.id

@@ -1,7 +1,17 @@
 __pycache__/
 *.pyc
+
+# virtual environments (each teammate uses their own Python version)
 .venv/
 venv/
+env/
+venv*/
+.venv*/
+
 .env
 *.db
 .pytest_cache/
+.vscode/
+
+# local notes, not part of the codebase
+docs.md

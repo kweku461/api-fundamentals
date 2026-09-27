@@ -1,6 +1,11 @@
 # Owner: Henry (Phase 3 - deployment)
 # Render "Blueprint": creates the web service and the Postgres database together.
-# Owner: Henry (Phase 3 - deployment)
+databases:
+  - name: internship-db
+    plan: free
+    databaseName: internship
+    user: internship
+
 services:
   - type: web
     name: internship-api
@@ -13,7 +18,9 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: internship-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: ALGORITHM
